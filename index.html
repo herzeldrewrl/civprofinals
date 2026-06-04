@@ -144,7 +144,15 @@
       <!-- dynamically generated -->
     </div>
     <div class="picker-actions">
-      <button class="btn primary" onclick="startNewQuiz()">Start Quiz (20 questions)</button>
+      <select id="quiz-size-select" style="font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);cursor:pointer;">
+        <option value="5">5 questions</option>
+        <option value="10">10 questions</option>
+        <option value="20" selected>20 questions</option>
+        <option value="30">30 questions</option>
+        <option value="50">50 questions</option>
+        <option value="9999">All questions</option>
+      </select>
+      <button class="btn primary" onclick="startNewQuiz()">Start Quiz</button>
       <span class="picker-note" id="picker-note"></span>
     </div>
     <div class="toc">
@@ -842,7 +850,7 @@ const BANK = [
 ];
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
-const QUIZ_SIZE = 20;
+let QUIZ_SIZE = 20;
 let activeQuestions = [];   // current 20-question set
 let savedQuestions = null;  // snapshot for resume after review
 let savedAnswered = null;
@@ -948,6 +956,8 @@ function showPicker() {
 }
 
 function startNewQuiz() {
+  const sel = document.getElementById('quiz-size-select');
+  QUIZ_SIZE = parseInt(sel ? sel.value : 20);
   const secs = getSelectedSections();
   if (secs.length === 0) { alert('Please select at least one section.'); return; }
   const pool = BANK.filter(q => secs.includes(q.sec));
