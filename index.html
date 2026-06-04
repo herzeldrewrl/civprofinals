@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="icon" type="image/png" href="favicon.png">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CivPro Finals Quiz</title>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="icon" type="image/png" href="favicon.png">
 <style>
   :root {
     --bg:#f5f3ef;--surface:#fff;--surface2:#f9f8f5;--border:#e2ddd6;
@@ -155,6 +155,7 @@
       </select>
       <button class="btn primary" onclick="startNewQuiz()">Start Quiz</button>
       <span class="picker-note" id="picker-note"></span>
+      <div id="seen-counter" style="width:100%;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:4px;"></div>
     </div>
     <div class="toc">
       <div class="toc-title">Section guide</div>
@@ -850,6 +851,41 @@ const BANK = [
   {id:595,sec:"U6",text:"After the foreclosure sale is confirmed, does the sale affect the rights of persons holding prior encumbrances upon the property?",choices:["No. Such sale shall not affect the rights of persons holding prior encumbrances upon the property or a part thereof — the foreclosure sale, even when confirmed, does not affect the rights of persons holding prior encumbrances; only the rights of junior encumbrancers and the mortgagor are affected by the confirmed sale.", "Yes. The confirmed foreclosure sale divests the rights of all encumbrancers including those holding prior encumbrances — since the sale vests rights in the purchaser subject only to redemption rights allowed by law, all prior and junior encumbrances are extinguished by the confirmed sale.", "No. But prior encumbrancers must file a claim in the foreclosure proceedings to preserve their priority — while prior encumbrances survive the foreclosure sale, prior encumbrancers must participate in the proceedings and register their claims; failure to do so results in the extinguishment of their prior encumbrances.", "Yes. The confirmed foreclosure sale extinguishes prior encumbrances but the purchaser takes subject to the obligation to pay off the prior encumbrancers — the purchaser must assume responsibility for satisfying the prior encumbrances as a condition of the confirmed sale."],correct:0,explanation:"Rule 68 Sec. 3 expressly provides that such sale shall not affect the rights of persons holding prior encumbrances upon the property or a part thereof. The confirmed foreclosure sale does not affect prior encumbrancers — only the parties to the action (junior encumbrancers and the mortgagor) lose their rights upon confirmation."},
 ];
 
+// ─── SEEN QUESTIONS TRACKER ───────────────────────────────────────────────────
+const SEEN_KEY = 'civpro_seen_ids';
+
+function loadSeen() {
+  try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]')); } catch(e) { return new Set(); }
+}
+
+function saveSeen(seen) {
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify([...seen])); } catch(e) {}
+}
+
+function markSeen(questions) {
+  const seen = loadSeen();
+  questions.forEach(q => seen.add(q.id));
+  saveSeen(seen);
+  updateSeenCounter();
+}
+
+function updateSeenCounter() {
+  const el = document.getElementById('seen-counter');
+  if (!el) return;
+  const seen = loadSeen();
+  const total = BANK.length;
+  const count = [...seen].filter(id => BANK.some(q => q.id === id)).length;
+  el.textContent = count + ' / ' + total + ' questions seen';
+  el.title = 'Unseen questions are always prioritized first';
+  if (count >= total) {
+    el.textContent = '✓ All ' + total + ' questions seen! Resetting...';
+    setTimeout(() => {
+      saveSeen(new Set());
+      updateSeenCounter();
+    }, 2000);
+  }
+}
+
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let QUIZ_SIZE = 20;
 let activeQuestions = [];   // current 20-question set
@@ -945,6 +981,7 @@ function prepareQuestions(pool) {
 
 // ─── QUIZ FLOW ────────────────────────────────────────────────────────────────
 function showPicker() {
+  updateSeenCounter();
   document.getElementById('picker').style.display = 'block';
   document.getElementById('top-bar').style.display = 'none';
   document.getElementById('progress-wrap').style.display = 'none';
@@ -964,10 +1001,16 @@ function startNewQuiz() {
   const pool = BANK.filter(q => secs.includes(q.sec));
   if (pool.length === 0) { alert('No questions available for the selected sections.'); return; }
 
+  // Prioritize unseen questions
+  const seen = loadSeen();
+  const unseen = pool.filter(q => !seen.has(q.id));
+  const seenPool = pool.filter(q => seen.has(q.id));
+  const prioritized = shuffle(unseen).concat(shuffle(seenPool));
+
   isReviewMode = false;
   wrongIds = new Set();
   savedQuestions = null; savedAnswered = null; savedCorrect = 0; savedWrong = 0;
-  activeQuestions = prepareQuestions(pool);
+  activeQuestions = prepareQuestions(prioritized);
   answered = new Array(activeQuestions.length).fill(null);
   correct = 0; wrong = 0;
 
@@ -983,6 +1026,7 @@ function startNewQuiz() {
 
   updateStats();
   renderQuiz();
+  markSeen(activeQuestions);
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -1224,6 +1268,7 @@ function checkDone() {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 buildPicker();
+updateSeenCounter();
 showPicker();
 </script>
 </body>
